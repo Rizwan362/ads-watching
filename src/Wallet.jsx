@@ -583,3 +583,4 @@ export default function Wallet({ user }) {
     </div>
   );
 }
+

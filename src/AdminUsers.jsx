@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "http://192.168.1.7:5001";
+  "https://ads-watching-api.onrender.com";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -1060,3 +1060,4 @@ function Detail({ label, value }) {
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "./plans.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.7:5001";
+const API_URL = import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
 
 export default function Plans({ user, onPlanPurchased }) {
   console.log("PLANS_COMPONENT_LOADED");
@@ -937,3 +937,4 @@ export default function Plans({ user, onPlanPurchased }) {
     </div>
   );
 }
+

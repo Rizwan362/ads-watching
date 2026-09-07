@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://192.168.1.7:5001";
+  import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
@@ -555,3 +555,4 @@ const token = localStorage.getItem("adminToken");
     </div>
   );
 }
+

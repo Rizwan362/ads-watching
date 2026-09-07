@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.7:5001";
+const API_URL = import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
 
 export default function AdminWithdrawals() {
   const [withdrawals, setWithdrawals] = useState([]);
@@ -440,5 +440,6 @@ await fetchWithdrawals(true);
     </div>
   );
 }
+
 
 

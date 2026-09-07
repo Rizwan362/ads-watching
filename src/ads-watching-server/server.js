@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const nodemailer = require("nodemailer");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
@@ -8,7 +8,88 @@ const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+// ============================================================
+// EMAIL / SMTP
+// ============================================================
 
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+transporter.verify()
+  .then(() => {
+    console.log("SMTP connection verified successfully");
+  })
+  .catch((error) => {
+    console.error("SMTP connection error:", error.message);
+  });
+// ============================================================
+// OTP HELPERS
+// ============================================================
+
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function createAndSendOtp({
+  email,
+  userId = null,
+  purpose,
+}) {
+  const code = generateOtp();
+
+  await pool.query(
+    `
+    DELETE FROM email_otps
+    WHERE email = $1
+      AND purpose = $2
+    `,
+    [email, purpose]
+  );
+
+  await pool.query(
+    `
+    INSERT INTO email_otps
+    (
+      user_id,
+      email,
+      code,
+      purpose,
+      expires_at
+    )
+    VALUES
+    (
+      $1,
+      $2,
+      $3,
+      $4,
+      NOW() + INTERVAL '10 minutes'
+    )
+    `,
+    [userId, email, code, purpose]
+  );
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject:
+      purpose === "registration"
+        ? "Ads Watching - Email Verification OTP"
+        : "Ads Watching - Password Reset OTP",
+    text:
+      purpose === "registration"
+        ? `Your Ads Watching verification OTP is ${code}. This OTP will expire in 10 minutes.`
+        : `Your Ads Watching password reset OTP is ${code}. This OTP will expire in 10 minutes.`,
+  });
+
+  return true;
+}
 
 // ============================================================
 // MIDDLEWARE
@@ -22,17 +103,30 @@ app.use(express.json());
 // ============================================================
 const dbUrl = process.env.DATABASE_URL;
 
+const poolConfig = dbUrl
+  ? {
+      connectionString: dbUrl,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT || 5432),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: false,
+    };
+
 console.log(
   "DATABASE HOST:",
-  dbUrl ? new URL(dbUrl).hostname : "DATABASE_URL NOT FOUND"
+  dbUrl
+    ? new URL(dbUrl).hostname
+    : process.env.DB_HOST || "DATABASE HOST NOT FOUND"
 );
 
-const pool = new Pool({
-  connectionString: dbUrl,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false,
-});
+const pool = new Pool(poolConfig);
 
 pool
   .query("SELECT NOW()")
@@ -266,9 +360,28 @@ app.post("/api/auth/register", async (req, res) => {
       ]
     );
 
+      // ============================================================
+    // SEND REGISTRATION OTP
+    // ============================================================
+
+    try {
+      await createAndSendOtp({
+        email: normalizedEmail,
+        userId: result.rows[0].id,
+        purpose: "registration",
+      });
+    } catch (emailError) {
+      console.error("REGISTRATION OTP EMAIL ERROR:", emailError.message);
+
+      return res.status(500).json({
+        success: false,
+        message: "Account created, but verification email could not be sent. Please try resend OTP.",
+      });
+    }
+
     return res.status(201).json({
       success: true,
-      message: "Registration successful",
+      message: "Registration successful. OTP sent to your email.",
       user: result.rows[0],
     });
 
@@ -278,6 +391,280 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error during registration",
+    });
+  }
+});
+// ============================================================
+// VERIFY REGISTRATION OTP
+// ============================================================
+
+app.post("/api/auth/verify-otp", async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+
+    const otpResult = await pool.query(
+      `
+      SELECT id, user_id
+      FROM email_otps
+      WHERE email = $1
+        AND code = $2
+        AND purpose = 'registration'
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [normalizedEmail, normalizedCode]
+    );
+
+    if (otpResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    const userId = otpResult.rows[0].user_id;
+
+    await pool.query(
+      `
+      UPDATE users
+      SET email_verified = true
+      WHERE id = $1
+      `,
+      [userId]
+    );
+
+    await pool.query(
+      `
+      DELETE FROM email_otps
+      WHERE email = $1
+        AND purpose = 'registration'
+      `,
+      [normalizedEmail]
+    );
+
+    return res.json({
+      success: true,
+      message: "Email verified successfully",
+    });
+
+  } catch (error) {
+    console.error("VERIFY OTP ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error during OTP verification",
+    });
+  }
+});
+
+// ============================================================
+// RESEND REGISTRATION OTP
+// ============================================================
+
+app.post("/api/auth/resend-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const userResult = await pool.query(
+      `
+      SELECT id, email_verified
+      FROM users
+      WHERE email = $1
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    await createAndSendOtp({
+      email: normalizedEmail,
+      userId: user.id,
+      purpose: "registration",
+    });
+
+    return res.json({
+      success: true,
+      message: "OTP sent successfully to your email.",
+    });
+
+  } catch (error) {
+    console.error("RESEND OTP ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to resend OTP",
+    });
+  }
+});
+// ============================================================
+// FORGOT PASSWORD - SEND OTP
+// ============================================================
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const userResult = await pool.query(
+      `
+      SELECT id
+      FROM users
+      WHERE email = $1
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
+
+    // Generic response for security
+    if (userResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: "If this email is registered, a password reset OTP has been sent.",
+      });
+    }
+
+    await createAndSendOtp({
+      email: normalizedEmail,
+      userId: userResult.rows[0].id,
+      purpose: "password_reset",
+    });
+
+    return res.json({
+      success: true,
+      message: "Password reset OTP sent successfully.",
+    });
+
+  } catch (error) {
+    console.error("FORGOT PASSWORD ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send password reset OTP",
+    });
+  }
+});
+// ============================================================
+// RESET PASSWORD - VERIFY OTP AND UPDATE PASSWORD
+// ============================================================
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP and new password are required",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+
+    const otpResult = await pool.query(
+      `
+      SELECT id, user_id
+      FROM email_otps
+      WHERE email = $1
+        AND code = $2
+        AND purpose = 'password_reset'
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [normalizedEmail, normalizedCode]
+    );
+
+    if (otpResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    const userId = otpResult.rows[0].user_id;
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await pool.query(
+      `
+      UPDATE users
+      SET password_hash = $1
+      WHERE id = $2
+      `,
+      [passwordHash, userId]
+    );
+
+    await pool.query(
+      `
+      DELETE FROM email_otps
+      WHERE email = $1
+        AND purpose = 'password_reset'
+      `,
+      [normalizedEmail]
+    );
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully. You can now login.",
+    });
+
+  } catch (error) {
+    console.error("RESET PASSWORD ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while resetting password",
     });
   }
 });

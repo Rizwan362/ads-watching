@@ -7,7 +7,9 @@ import Plans from "./Plans";
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.5:5001";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://ads-watching-api.onrender.com";
 async function apiRequest(path, options = {}) {
   const url = `${API_URL}${path}`;
 

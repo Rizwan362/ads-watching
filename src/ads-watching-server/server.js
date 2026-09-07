@@ -166,13 +166,9 @@ app.put("/api/notifications/:userId/read", async (req, res) => {
 // AUTH APIs
 // ============================================================
 
-// ------------------------------------------------------------
-// REGISTER
-// ------------------------------------------------------------
-
-const { name, email, password, referralCode } = req.body;
+app.post("/api/auth/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, referralCode } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -181,17 +177,16 @@ const { name, email, password, referralCode } = req.body;
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters",
-      });
-    }
-
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Check existing user
     const existingUser = await pool.query(
-      "SELECT id FROM users WHERE email = $1 LIMIT 1",
+      `
+      SELECT id
+      FROM users
+      WHERE email = $1
+      LIMIT 1
+      `,
       [normalizedEmail]
     );
 
@@ -203,49 +198,59 @@ const { name, email, password, referralCode } = req.body;
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-// ============================================================
-// REFERRAL CODE CHECK
-// ============================================================
 
-let referredBy = null;
+    // ============================================================
+    // REFERRAL CODE CHECK
+    // ============================================================
 
-if (referralCode && referralCode.trim()) {
-  const referralResult = await pool.query(
-    `
-    SELECT id
-    FROM users
-    WHERE referral_code = $1
-    LIMIT 1
-    `,
-    [referralCode.trim().toUpperCase()]
-  );
+    let referredBy = null;
 
-  if (referralResult.rows.length > 0) {
-    referredBy = referralResult.rows[0].id;
-  }
-}
+    if (referralCode && referralCode.trim()) {
+      const referralResult = await pool.query(
+        `
+        SELECT id
+        FROM users
+        WHERE referral_code = $1
+        LIMIT 1
+        `,
+        [referralCode.trim().toUpperCase()]
+      );
 
+      if (referralResult.rows.length > 0) {
+        referredBy = referralResult.rows[0].id;
+      }
+    }
+
+    // ============================================================
+    // CREATE USER
+    // ============================================================
 
     const result = await pool.query(
       `
       INSERT INTO users
-(
-  name,
-  email,
-  password_hash,
-  email_verified,
-  referral_code,
-  referred_by
-)
-VALUES
-(
-  $1,
-  $2,
-  $3,
-  false,
-  'RW' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT), 1, 8)),
-  $4
-)
+      (
+        name,
+        email,
+        password_hash,
+        email_verified,
+        referral_code,
+        referred_by
+      )
+      VALUES
+      (
+        $1,
+        $2,
+        $3,
+        false,
+        'RW' || UPPER(
+          SUBSTRING(
+            MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT),
+            1,
+            8
+          )
+        ),
+        $4
+      )
       RETURNING
         id,
         name,
@@ -254,11 +259,11 @@ VALUES
         created_at
       `,
       [
-  name.trim(),
-  normalizedEmail,
-  passwordHash,
-  referredBy,
-]
+        name.trim(),
+        normalizedEmail,
+        passwordHash,
+        referredBy,
+      ]
     );
 
     return res.status(201).json({
@@ -266,8 +271,10 @@ VALUES
       message: "Registration successful",
       user: result.rows[0],
     });
+
   } catch (error) {
     console.error("Register error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Server error during registration",

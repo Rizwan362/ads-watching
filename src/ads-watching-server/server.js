@@ -1885,12 +1885,15 @@ app.post("/api/admin/login", async (req, res) => {
     });
   }
 });
-
 function authenticateAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
+    console.log("ADMIN AUTH HEADER EXISTS:", !!authHeader);
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("ADMIN AUTH ERROR: Missing or invalid Authorization header");
+
       return res.status(401).json({
         success: false,
         message: "Admin authentication required",
@@ -1899,12 +1902,19 @@ function authenticateAdmin(req, res, next) {
 
     const token = authHeader.split(" ")[1];
 
+    console.log("ADMIN TOKEN EXISTS:", !!token);
+    console.log("ADMIN TOKEN LENGTH:", token ? token.length : 0);
+
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
+    console.log("ADMIN TOKEN VERIFIED:", decoded);
+
     if (decoded.role !== "admin") {
+      console.log("ADMIN AUTH ERROR: Role is not admin");
+
       return res.status(403).json({
         success: false,
         message: "Admin access denied",
@@ -1912,8 +1922,8 @@ function authenticateAdmin(req, res, next) {
     }
 
     req.admin = decoded;
-
     next();
+
   } catch (error) {
     console.error("ADMIN AUTH ERROR:", error.message);
 

@@ -43,6 +43,8 @@ export default function AdminPanel() {
       });
 
       const data = await response.json();
+      console.log("ADMIN LOGIN RESPONSE:", data);
+console.log("ADMIN TOKEN:", data.token);
 
       if (data.success) {
         localStorage.setItem("admin_logged_in", "true");

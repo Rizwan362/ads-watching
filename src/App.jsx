@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import "./App.css";
 import "./wallet.css";
 import Plans from "./Plans";
+import AdminPanel from "./AdminPanel";
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
@@ -1330,6 +1331,9 @@ setTimeout(() => {
     } finally {
       setLoading(false);
     }
+  }
+   if (window.location.hash === "#/admin") {
+    return <AdminPanel />;
   }
 
   // ============================================================

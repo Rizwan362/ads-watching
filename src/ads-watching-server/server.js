@@ -6,9 +6,9 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 
-
 const app = express();
 const PORT = process.env.PORT || 5001;
+
 
 // ============================================================
 // MIDDLEWARE
@@ -20,13 +20,15 @@ app.use(express.json());
 // ============================================================
 // POSTGRESQL CONNECTION
 // ============================================================
+const dbUrl = process.env.DATABASE_URL;
+
+console.log(
+  "DATABASE HOST:",
+  dbUrl ? new URL(dbUrl).hostname : "DATABASE_URL NOT FOUND"
+);
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT) || 5432,
+  connectionString: dbUrl,
   ssl: process.env.NODE_ENV === "production"
     ? { rejectUnauthorized: false }
     : false,
@@ -40,7 +42,6 @@ pool
   .catch((err) => {
     console.error("PostgreSQL connection error:", err.message);
   });
-
 // ============================================================
 // ROOT
 // ============================================================
@@ -1415,10 +1416,7 @@ function authenticateAdmin(req, res, next) {
 // ADMIN DASHBOARD STATS
 // ------------------------------------------------------------
 
-app.get(
-  "/api/admin/dashboard-stats",
-  authenticateAdmin,
-  async (req, res) => {
+app.get("/api/admin/dashboard-stats", async (req, res) => {
   try {
     const totalUsersResult = await pool.query("SELECT COUNT(*) FROM users");
     const activeUsersResult = await pool.query("SELECT COUNT(*) FROM users WHERE balance > 0");
@@ -1463,10 +1461,7 @@ app.get(
 // ADMIN - GET ALL DEPOSITS
 // ------------------------------------------------------------
 
-app.get(
-  "/api/admin/deposits",
-  authenticateAdmin,
-  async (req, res) => {
+app.get("/api/admin/deposits", async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -1500,10 +1495,7 @@ app.get(
 // ADMIN - APPROVE DEPOSIT
 // ------------------------------------------------------------
 
-app.post(
-  "/api/admin/deposit/approve",
-  authenticateAdmin,
-  async (req, res) => {
+app.post("/api/admin/deposit/approve", async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -1741,10 +1733,7 @@ if (referralResult.rows.length > 0) {
 // ADMIN - REJECT DEPOSIT
 // ------------------------------------------------------------
 
-app.post(
-  "/api/admin/deposit/reject",
-  authenticateAdmin,
-  async (req, res) => {
+app.post("/api/admin/deposit/reject", async (req, res) => {
   try {
     const { depositId, reason } = req.body;
 
@@ -1814,10 +1803,7 @@ app.get(
 // ------------------------------------------------------------
 // ADMIN - GET ALL WITHDRAWALS
 // ------------------------------------------------------------
-app.get(
-  "/api/admin/withdrawals",
-  authenticateAdmin,
-  async (req, res) => {
+app.get("/api/admin/withdrawals", authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -1850,10 +1836,7 @@ app.get(
 // ADMIN - GET ALL TRANSACTIONS
 // ------------------------------------------------------------
 
-app.get(
-  "/api/admin/transactions",
-  authenticateAdmin,
-  async (req, res) => {
+app.get("/api/admin/transactions", authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -1885,10 +1868,7 @@ app.get(
 // ADMIN - GET ALL PLANS
 // ------------------------------------------------------------
 
-app.get(
-  "/api/admin/plans",
-  authenticateAdmin,
-  async (req, res) => {
+app.get("/api/admin/plans", authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -1913,10 +1893,7 @@ app.get(
 // ADMIN - CREATE PLAN
 // ------------------------------------------------------------
 
-app.post(
-  "/api/admin/plans/create",
-  authenticateAdmin,
-  async (req, res) => {
+app.post("/api/admin/plans/create", authenticateAdmin, async (req, res) => {
   try {
     const { name, price, daily_earning, duration_days, total_earning } = req.body;
 
@@ -1954,10 +1931,7 @@ app.post(
 // ADMIN - UPDATE PLAN
 // ------------------------------------------------------------
 
-app.put(
-  "/api/admin/plans/:id",
-  authenticateAdmin,
-  async (req, res) => {
+app.put("/api/admin/plans/:id", authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, price, daily_earning, duration_days, total_earning, is_active } = req.body;
@@ -2006,10 +1980,7 @@ app.put(
 // ADMIN - DELETE / DEACTIVATE PLAN
 // ------------------------------------------------------------
 
-app.delete(
-  "/api/admin/plans/:id",
-  authenticateAdmin,
-  async (req, res) => {
+app.delete("/api/admin/plans/:id", authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 

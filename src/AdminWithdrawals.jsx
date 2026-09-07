@@ -89,6 +89,7 @@ export default function AdminWithdrawals() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+             Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
           },
           body: JSON.stringify({
             withdrawId,

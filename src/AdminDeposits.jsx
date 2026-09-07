@@ -13,6 +13,7 @@ export default function AdminDeposits() {
 
   const fetchDeposits = async () => {
     try {
+      const token = localStorage.getItem("adminToken");
       const response = await fetch(`${API_URL}/api/admin/deposits`);
       const data = await response.json();
       if (data.success) {

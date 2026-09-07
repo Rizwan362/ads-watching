@@ -12,19 +12,31 @@ export default function AdminTransactions() {
   }, []);
 
   const fetchTransactions = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/admin/transactions`);
-      const data = await response.json();
-      if (data.success) {
-        setTransactions(data.transactions);
-      }
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const token = localStorage.getItem("adminToken");
 
+    const response = await fetch(
+      `${API_URL}/api/admin/transactions`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.success) {
+      setTransactions(data.transactions);
+    } else {
+      console.error("Transactions error:", data.message);
+    }
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+  } finally {
+    setLoading(false);
+  }
+};
   const filteredTransactions = transactions.filter(tx =>
     tx.user_name?.toLowerCase().includes(search.toLowerCase()) ||
     tx.reference?.toLowerCase().includes(search.toLowerCase())

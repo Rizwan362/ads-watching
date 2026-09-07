@@ -28,8 +28,12 @@ export default function AdminPlans() {
   const fetchPlans = async () => {
     try {
       setLoading(true);
-
-      const response = await fetch(`${API_URL}/api/admin/plans`);
+const token = localStorage.getItem("adminToken");
+      const response = await fetch(`${API_URL}/api/admin/plans`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
 
@@ -99,8 +103,9 @@ export default function AdminPlans() {
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type": "application/json",
-        },
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+},
         body: JSON.stringify({
           name: formData.name.trim(),
           price: Number(formData.price),
@@ -150,9 +155,12 @@ export default function AdminPlans() {
     try {
       const response = await fetch(
         `${API_URL}/api/admin/plans/${planId}`,
-        {
-          method: "DELETE",
-        }
+       {
+  method: "DELETE",
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+  },
+}
       );
 
       const data = await response.json();
@@ -182,6 +190,7 @@ export default function AdminPlans() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
           },
           body: JSON.stringify({
             planId: planId,

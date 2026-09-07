@@ -46,7 +46,7 @@ export default function AdminPanel() {
 
       if (data.success) {
         localStorage.setItem("admin_logged_in", "true");
-        localStorage.setItem("admin_token", data.token);
+        localStorage.setItem("adminToken", data.token);
         localStorage.setItem("admin_data", JSON.stringify(data.admin));
         setIsLoggedIn(true);
         setAdminError("");
@@ -63,7 +63,7 @@ export default function AdminPanel() {
 
   const handleAdminLogout = () => {
     localStorage.removeItem("admin_logged_in");
-    localStorage.removeItem("admin_token");
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("admin_data");
     setIsLoggedIn(false);
   };

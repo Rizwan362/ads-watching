@@ -27,6 +27,7 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     try {
+      const token = localStorage.getItem("adminToken");
       const response = await fetch(
         `${API_URL}/api/admin/users`
       );
@@ -72,13 +73,17 @@ export default function AdminUsers() {
     }
 
     try {
+      const token = localStorage.getItem("adminToken");
       const response = await fetch(
         `${API_URL}/api/admin/user/block`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+         
+
+headers: {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${token}`,
+},
           body: JSON.stringify({
             userId,
             block: !currentStatus,

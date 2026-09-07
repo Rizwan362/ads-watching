@@ -28,9 +28,11 @@ export default function AdminDashboard() {
 
   const fetchDashboardStats = async () => {
     try {
+      const token = localStorage.getItem("adminToken");
       const response = await fetch(`${API_URL}/api/admin/dashboard-stats`);
       const data = await response.json();
       if (data.success) {
+        
         setStats(data.stats);
       }
     } catch (error) {

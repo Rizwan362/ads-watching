@@ -170,7 +170,7 @@ app.put("/api/notifications/:userId/read", async (req, res) => {
 // REGISTER
 // ------------------------------------------------------------
 
-app.post("/api/auth/register", async (req, res) => {
+const { name, email, password, referralCode } = req.body;
   try {
     const { name, email, password } = req.body;
 
@@ -203,13 +203,49 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+// ============================================================
+// REFERRAL CODE CHECK
+// ============================================================
+
+let referredBy = null;
+
+if (referralCode && referralCode.trim()) {
+  const referralResult = await pool.query(
+    `
+    SELECT id
+    FROM users
+    WHERE referral_code = $1
+    LIMIT 1
+    `,
+    [referralCode.trim().toUpperCase()]
+  );
+
+  if (referralResult.rows.length > 0) {
+    referredBy = referralResult.rows[0].id;
+  }
+}
+
 
     const result = await pool.query(
       `
       INSERT INTO users
-        (name, email, password_hash, email_verified)
-      VALUES
-        ($1, $2, $3, false)
+(
+  name,
+  email,
+  password_hash,
+  email_verified,
+  referral_code,
+  referred_by
+)
+VALUES
+(
+  $1,
+  $2,
+  $3,
+  false,
+  'RW' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT), 1, 8)),
+  $4
+)
       RETURNING
         id,
         name,
@@ -217,7 +253,12 @@ app.post("/api/auth/register", async (req, res) => {
         email_verified,
         created_at
       `,
-      [name.trim(), normalizedEmail, passwordHash]
+      [
+  name.trim(),
+  normalizedEmail,
+  passwordHash,
+  referredBy,
+]
     );
 
     return res.status(201).json({
@@ -318,6 +359,87 @@ app.post("/api/auth/login", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error during login",
+    });
+  }
+});
+// ============================================================
+// REFERRAL API
+// ============================================================
+
+app.get("/api/referral/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const userResult = await pool.query(
+      `
+      SELECT
+        id,
+        referral_code
+      FROM users
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Count total users referred by this user
+    const referralCountResult = await pool.query(
+      `
+      SELECT COUNT(*)::int AS total_referrals
+      FROM users
+      WHERE referred_by = $1
+      `,
+      [userId]
+    );
+
+    // Total referral points earned
+    const pointsResult = await pool.query(
+      `
+      SELECT
+        COALESCE(SUM(reward_points), 0) AS total_points
+      FROM referral_rewards
+      WHERE referrer_id = $1
+      `,
+      [userId]
+    );
+
+    const referralCode = user.referral_code;
+
+    // Change this URL if your frontend production domain is different
+    const baseUrl =
+      process.env.FRONTEND_URL || "https://your-app-url.com";
+
+    const referralLink =
+      `${baseUrl}?ref=${encodeURIComponent(referralCode)}`;
+
+    return res.json({
+      success: true,
+      referral: {
+        code: referralCode,
+        link: referralLink,
+        totalReferrals:
+          referralCountResult.rows[0]?.total_referrals || 0,
+        totalReferralPoints: parseInt(
+          pointsResult.rows[0]?.total_points || 0
+        ),
+      },
+    });
+
+  } catch (error) {
+    console.error("REFERRAL API ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 });

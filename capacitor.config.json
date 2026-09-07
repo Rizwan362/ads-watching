@@ -1,0 +1,8 @@
+{
+  "appId": "com.plan.app",
+  "appName": "Plan Purchase",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http"
+  }
+}

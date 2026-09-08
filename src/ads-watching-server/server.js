@@ -5,6 +5,7 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+const multer = require("multer");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -13,6 +14,19 @@ const PORT = process.env.PORT || 5001;
 // ============================================================
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image screenshots are allowed"));
+    }
+
+    cb(null, true);
+  },
+});
 // ============================================================
 // OTP HELPERS
 // ============================================================
@@ -735,7 +749,7 @@ app.post("/api/auth/resend-otp", async (req, res) => {
       SELECT id, email_verified
       FROM users
       WHERE email = $1
-      LIMIT 1
+;2      LIMIT 1
       `,
       [normalizedEmail]
     );
@@ -784,7 +798,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
+;2    if (!email) {
       return res.status(400).json({
         success: false,
         message: "Email is required",
@@ -1569,6 +1583,213 @@ await createNotification(
     });
   }
 });
+// ============================================================
+// PAYMENT CONFIRMATION WITH SCREENSHOT
+// ============================================================
+
+app.post(
+  "/api/payment/confirm-with-screenshot",
+  upload.single("screenshot"),
+  async (req, res) => {
+    try {
+      const {
+        userId,
+        planId,
+        paymentMethod,
+        accountNumber,
+        accountName,
+      } = req.body;
+
+      // --------------------------------------------------------
+      // VALIDATION
+      // --------------------------------------------------------
+
+      if (!userId || !planId) {
+        return res.status(400).json({
+          success: false,
+          message: "User ID and Plan ID are required",
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment screenshot is required",
+        });
+      }
+
+      if (!accountNumber || !accountName) {
+        return res.status(400).json({
+          success: false,
+          message: "Account number and account name are required",
+        });
+      }
+
+      // --------------------------------------------------------
+      // GET USER
+      // --------------------------------------------------------
+
+      const userResult = await pool.query(
+        `
+        SELECT id, name, email, is_account_setup
+        FROM users
+        WHERE id = $1
+        `,
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // --------------------------------------------------------
+      // GET PLAN
+      // --------------------------------------------------------
+
+      const planResult = await pool.query(
+        `
+        SELECT *
+        FROM plans
+        WHERE id = $1
+          AND is_active = true
+        `,
+        [planId]
+      );
+
+      if (planResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Plan not found or inactive",
+        });
+      }
+
+      const plan = planResult.rows[0];
+
+      // --------------------------------------------------------
+      // CHECK FOR EXISTING PENDING PAYMENT
+      // --------------------------------------------------------
+
+      const existingPayment = await pool.query(
+        `
+        SELECT id
+        FROM payment_requests
+        WHERE user_id = $1
+          AND plan_id = $2
+          AND payment_type = 'plan_purchase'
+          AND status = 'pending'
+        LIMIT 1
+        `,
+        [userId, planId]
+      );
+
+      if (existingPayment.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a pending payment request for this plan.",
+        });
+      }
+
+      // --------------------------------------------------------
+      // GENERATE REFERENCE ID
+      // --------------------------------------------------------
+
+      const referenceId =
+        `PAY-${Date.now()}-${userId}`;
+
+      // --------------------------------------------------------
+      // CONVERT SCREENSHOT TO BASE64
+      // --------------------------------------------------------
+
+      const screenshotBase64 =
+        `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+      // --------------------------------------------------------
+      // SAVE PAYMENT REQUEST
+      // --------------------------------------------------------
+
+      const result = await pool.query(
+        `
+        INSERT INTO payment_requests
+        (
+          user_id,
+          plan_id,
+          amount,
+          payment_method,
+          account_number,
+          account_name,
+          reference_id,
+          payment_type,
+          status,
+          payment_screenshot
+        )
+        VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          'plan_purchase',
+          'pending',
+          $8
+        )
+        RETURNING id, reference_id, amount, status
+        `,
+        [
+          userId,
+          planId,
+          plan.price,
+          paymentMethod || "EasyPaisa",
+          accountNumber,
+          accountName,
+          referenceId,
+          screenshotBase64,
+        ]
+      );
+
+      // --------------------------------------------------------
+      // USER NOTIFICATION
+      // --------------------------------------------------------
+
+      await createNotification(
+        userId,
+        "Payment Pending ⏳",
+        `Your payment of Rs ${plan.price} for ${plan.name} has been submitted and is waiting for admin verification.`
+      );
+
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
+
+      return res.json({
+        success: true,
+        message:
+          "Payment submitted successfully. Waiting for admin verification.",
+        referenceId,
+        paymentId: result.rows[0].id,
+        amount: parseFloat(plan.price),
+        planName: plan.name,
+        status: "pending",
+      });
+
+    } catch (error) {
+      console.error(
+        "CONFIRM PAYMENT WITH SCREENSHOT ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Payment submission failed",
+      });
+    }
+  }
+);
 
 // ============================================================
 // WITHDRAW APIs

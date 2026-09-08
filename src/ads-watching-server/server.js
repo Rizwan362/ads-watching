@@ -2599,30 +2599,60 @@ app.get(
   "/api/admin/users",
   authenticateAdmin,
   async (req, res) => {
-  try {
-    const result = await pool.query(
-      `
-      SELECT 
-        id, name, email, phone, cnic, balance,
-        total_points, is_account_setup, email_verified,
-        created_at, updated_at
-      FROM users
-      ORDER BY created_at DESC
-      `
-    );
+    try {
+      const result = await pool.query(`
+        SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.phone,
+          u.cnic,
+          u.balance,
+          u.total_points,
+          u.claimed_points,
+          u.total_earnings,
+          u.is_account_setup,
+          u.email_verified,
+          u.is_blocked,
+          u.account_setup_date,
+          u.referral_code,
+          u.referred_by,
+          u.referral_points,
+          u.created_at,
+          u.updated_at,
 
-    res.json({
-      success: true,
-      users: result.rows,
-    });
-  } catch (error) {
-    console.error("Get users error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+          (
+            SELECT COUNT(*)
+            FROM user_plans up
+            WHERE up.user_id = u.id
+            AND up.status = 'active'
+          ) AS active_plan_count,
+
+          (
+            SELECT COUNT(*)
+            FROM users ru
+            WHERE ru.referred_by = u.id
+          ) AS total_referrals
+
+        FROM users u
+        ORDER BY u.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        users: result.rows,
+      });
+
+    } catch (error) {
+      console.error("Get users error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
   }
-});
+);
 
 // ------------------------------------------------------------
 // ADMIN - GET ALL WITHDRAWALS

@@ -345,6 +345,25 @@ const copyReferralLink = async () => {
     alert("Failed to copy referral link");
   }
 };
+const shareReferralLink = async () => {
+  try {
+    const referralLink =
+      `${window.location.origin}/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+
+    if (navigator.share) {
+      await navigator.share({
+        title: "Join Ads Watching",
+        text: "Join using my referral link!",
+        url: referralLink,
+      });
+    } else {
+      await navigator.clipboard.writeText(referralLink);
+      alert("Referral link copied!");
+    }
+  } catch (error) {
+    console.error("SHARE REFERRAL LINK ERROR:", error);
+  }
+};
   // ============================================================
   // LOAD DEPOSIT INFO
   // ============================================================

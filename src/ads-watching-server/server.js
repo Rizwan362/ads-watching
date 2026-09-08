@@ -1887,6 +1887,11 @@ app.post("/api/admin/login", async (req, res) => {
 });
 function authenticateAdmin(req, res, next) {
   try {
+     console.log("========== ADMIN AUTH ==========");
+    console.log("URL:", req.originalUrl);
+    console.log("METHOD:", req.method);
+    console.log("AUTH HEADER:", req.headers.authorization);
+    console.log("================================");
     const authHeader = req.headers.authorization;
 
     console.log("ADMIN AUTH HEADER EXISTS:", !!authHeader);
@@ -2325,6 +2330,8 @@ app.get(
 // ADMIN - GET ALL WITHDRAWALS
 // ------------------------------------------------------------
 app.get("/api/admin/withdrawals", authenticateAdmin, async (req, res) => {
+    console.log("🔥 WITHDRAWALS ROUTE HIT");
+  console.log("🔥 ADMIN:", req.admin);
   try {
     const result = await pool.query(
       `

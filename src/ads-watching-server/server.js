@@ -1942,40 +1942,139 @@ function authenticateAdmin(req, res, next) {
 // ADMIN DASHBOARD STATS
 // ------------------------------------------------------------
 
-app.get("/api/admin/dashboard-stats", async (req, res) => {
+app.get("/api/admin/dashboard-stats", authenticateAdmin, async (req, res) => {
   try {
-    const totalUsersResult = await pool.query("SELECT COUNT(*) FROM users");
-    const activeUsersResult = await pool.query("SELECT COUNT(*) FROM users WHERE balance > 0");
-    const newUsersResult = await pool.query("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURRENT_DATE");
-    const totalDepositsResult = await pool.query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'deposit' AND status = 'completed'");
-    const pendingDepositsResult = await pool.query("SELECT COUNT(*) FROM payment_requests WHERE status = 'pending' AND payment_type = 'plan_purchase'");
-    const approvedDepositsResult = await pool.query("SELECT COUNT(*) FROM payment_requests WHERE status = 'verified'");
-    const totalWithdrawalsResult = await pool.query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'withdrawal' AND status = 'completed'");
-    const pendingWithdrawalsResult = await pool.query("SELECT COUNT(*) FROM withdraw_requests WHERE status = 'pending'");
-    const totalBalanceResult = await pool.query("SELECT COALESCE(SUM(balance), 0) FROM users");
-    const todayEarningsResult = await pool.query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'earning' AND DATE(created_at) = CURRENT_DATE");
-    const totalPlansResult = await pool.query("SELECT COUNT(*) FROM plans WHERE is_active = true");
-    const activePlansResult = await pool.query("SELECT COUNT(*) FROM user_plans WHERE status = 'active'");
+    // Total users
+    const totalUsersResult = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM users
+    `);
+
+    // Users with an active plan
+    const activeUsersResult = await pool.query(`
+      SELECT COUNT(DISTINCT user_id)::int AS count
+      FROM user_plans
+      WHERE status = 'active'
+    `);
+
+    // New users today
+    const newUsersResult = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM users
+      WHERE DATE(created_at) = CURRENT_DATE
+    `);
+
+    // Total deposits
+    // Use approved/verified payment requests directly
+   const totalDepositsResult = await pool.query(`
+  SELECT COALESCE(SUM(amount), 0) AS total
+  FROM payment_requests
+  WHERE payment_type = 'plan_purchase'
+    AND status = 'verified'
+`);
+
+    // Pending deposits
+   const pendingDepositsResult = await pool.query(`
+  SELECT COUNT(*)::int AS count
+  FROM payment_requests
+  WHERE payment_type = 'plan_purchase'
+    AND status = 'pending'
+`);
+
+    // Approved deposits
+   const approvedDepositsResult = await pool.query(`
+  SELECT COUNT(*)::int AS count
+  FROM payment_requests
+  WHERE payment_type = 'plan_purchase'
+    AND status = 'verified'
+`);
+
+    // Total withdrawals
+    const totalWithdrawalsResult = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM withdraw_requests
+      WHERE status = 'approved'
+    `);
+
+    // Pending withdrawals
+    const pendingWithdrawalsResult = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM withdraw_requests
+      WHERE status = 'pending'
+    `);
+
+    // Platform balance
+    const totalBalanceResult = await pool.query(`
+      SELECT COALESCE(SUM(balance), 0) AS total
+      FROM users
+    `);
+
+    // Today's earnings
+    const todayEarningsResult = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM transactions
+      WHERE type = 'earning'
+        AND status = 'completed'
+        AND DATE(created_at) = CURRENT_DATE
+    `);
+
+    // Total active plans
+    const totalPlansResult = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM plans
+      WHERE is_active = true
+    `);
+
+    // Active user plans
+    const activePlansResult = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM user_plans
+      WHERE status = 'active'
+    `);
 
     res.json({
       success: true,
       stats: {
-        totalUsers: parseInt(totalUsersResult.rows[0]?.count) || 0,
-        activeUsers: parseInt(activeUsersResult.rows[0]?.count) || 0,
-        newUsersToday: parseInt(newUsersResult.rows[0]?.count) || 0,
-        totalDeposits: parseFloat(totalDepositsResult.rows[0]?.sum) || 0,
-        pendingDeposits: parseInt(pendingDepositsResult.rows[0]?.count) || 0,
-        approvedDeposits: parseInt(approvedDepositsResult.rows[0]?.count) || 0,
-        totalWithdrawals: parseFloat(totalWithdrawalsResult.rows[0]?.sum) || 0,
-        pendingWithdrawals: parseInt(pendingWithdrawalsResult.rows[0]?.count) || 0,
-        totalBalance: parseFloat(totalBalanceResult.rows[0]?.sum) || 0,
-        todayEarnings: parseFloat(todayEarningsResult.rows[0]?.sum) || 0,
-        totalPlans: parseInt(totalPlansResult.rows[0]?.count) || 0,
-        activePlans: parseInt(activePlansResult.rows[0]?.count) || 0,
+        totalUsers:
+          parseInt(totalUsersResult.rows[0]?.count) || 0,
+
+        activeUsers:
+          parseInt(activeUsersResult.rows[0]?.count) || 0,
+
+        newUsersToday:
+          parseInt(newUsersResult.rows[0]?.count) || 0,
+
+        totalDeposits:
+          parseFloat(totalDepositsResult.rows[0]?.total) || 0,
+
+        pendingDeposits:
+          parseInt(pendingDepositsResult.rows[0]?.count) || 0,
+
+        approvedDeposits:
+          parseInt(approvedDepositsResult.rows[0]?.count) || 0,
+
+        totalWithdrawals:
+          parseFloat(totalWithdrawalsResult.rows[0]?.total) || 0,
+
+        pendingWithdrawals:
+          parseInt(pendingWithdrawalsResult.rows[0]?.count) || 0,
+
+        totalBalance:
+          parseFloat(totalBalanceResult.rows[0]?.total) || 0,
+
+        todayEarnings:
+          parseFloat(todayEarningsResult.rows[0]?.total) || 0,
+
+        totalPlans:
+          parseInt(totalPlansResult.rows[0]?.count) || 0,
+
+        activePlans:
+          parseInt(activePlansResult.rows[0]?.count) || 0,
       },
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -2607,8 +2706,7 @@ app.post(
         `
        UPDATE withdraw_requests
 SET
-  status = 'rejected',
-  admin_note = $2
+  status = 'rejected'
 WHERE id = $1
 RETURNING *
         `,

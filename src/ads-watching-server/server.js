@@ -292,6 +292,67 @@ app.put(
 );
 
 // ============================================================
+// ADMIN ACTIVITY ← YAHAN ADD KARO
+// ============================================================
+
+app.get(
+  "/api/admin/activity",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const activities = [];
+
+      const depositsResult = await pool.query(`
+        SELECT
+          id,
+          'deposit' AS type,
+          user_id,
+          amount,
+          status,
+          created_at
+        FROM payment_requests
+        WHERE payment_type IN ('deposit', 'plan_purchase')
+      `);
+
+      const withdrawalsResult = await pool.query(`
+        SELECT
+          id,
+          'withdrawal' AS type,
+          user_id,
+          amount,
+          status,
+          created_at
+        FROM withdraw_requests
+      `);
+
+      activities.push(
+        ...depositsResult.rows,
+        ...withdrawalsResult.rows
+      );
+
+      activities.sort(
+        (a, b) =>
+          new Date(b.created_at) -
+          new Date(a.created_at)
+      );
+
+      res.json({
+        success: true,
+        activity: activities,
+      });
+
+    } catch (error) {
+      console.error("ADMIN ACTIVITY ERROR:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to load admin activity",
+      });
+    }
+  }
+);
+
+// ============================================================
 // DEPOSIT INFO ENDPOINT
 // ============================================================
 

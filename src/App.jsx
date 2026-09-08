@@ -332,6 +332,19 @@ async function loadReferralData(userId = user?.id) {
     console.error("LOAD REFERRAL DATA ERROR:", error);
   }
 }
+const copyReferralLink = async () => {
+  try {
+    const referralLink =
+      `${window.location.origin}/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+
+    await navigator.clipboard.writeText(referralLink);
+
+    alert("Referral link copied!");
+  } catch (error) {
+    console.error("COPY REFERRAL LINK ERROR:", error);
+    alert("Failed to copy referral link");
+  }
+};
   // ============================================================
   // LOAD DEPOSIT INFO
   // ============================================================

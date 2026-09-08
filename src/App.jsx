@@ -314,6 +314,24 @@ async function loadNotifications(userId = user?.id) {
 const closeAnnouncement = () => {
   setShowAnnouncement(false);
 };
+async function loadReferralData(userId = user?.id) {
+  if (!userId) return;
+
+  try {
+    const response = await apiRequest(
+      `/api/referral/${userId}`
+    );
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      // Agar referral state maujood hai to yahan set karo
+      // setReferralData(data);
+    }
+  } catch (error) {
+    console.error("LOAD REFERRAL DATA ERROR:", error);
+  }
+}
   // ============================================================
   // LOAD DEPOSIT INFO
   // ============================================================

@@ -2360,6 +2360,308 @@ app.get("/api/admin/withdrawals", authenticateAdmin, async (req, res) => {
     });
   }
 });
+
+// ------------------------------------------------------------
+// ADMIN - APPROVE WITHDRAWAL
+// ------------------------------------------------------------
+
+app.post(
+  "/api/admin/withdraw/approve",
+  authenticateAdmin,
+  async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+      const { withdrawId } = req.body;
+
+      if (!withdrawId) {
+        return res.status(400).json({
+          success: false,
+          message: "Withdrawal ID is required",
+        });
+      }
+
+      await client.query("BEGIN");
+
+      // Get pending withdrawal + lock row
+      const withdrawResult = await client.query(
+        `
+        SELECT *
+        FROM withdraw_requests
+        WHERE id = $1
+          AND status = 'pending'
+        FOR UPDATE
+        `,
+        [withdrawId]
+      );
+
+      if (withdrawResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "Pending withdrawal not found",
+        });
+      }
+
+      const withdrawal = withdrawResult.rows[0];
+
+      const amount = parseFloat(withdrawal.amount);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message: "Invalid withdrawal amount",
+        });
+      }
+
+      // Lock and get user
+      const userResult = await client.query(
+        `
+        SELECT id, balance
+        FROM users
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [withdrawal.user_id]
+      );
+
+      if (userResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const user = userResult.rows[0];
+      const balance = parseFloat(user.balance || 0);
+
+      // Check balance again before approval
+      if (amount > balance) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message: "User has insufficient balance",
+        });
+      }
+
+      // Deduct balance
+      await client.query(
+        `
+        UPDATE users
+        SET
+          balance = COALESCE(balance, 0) - $1,
+          updated_at = NOW()
+        WHERE id = $2
+        `,
+        [amount, withdrawal.user_id]
+      );
+
+      // Mark withdrawal approved
+      const updateResult = await client.query(
+        `
+        UPDATE withdraw_requests
+SET
+  status = 'approved',
+  approved_at = NOW()
+WHERE id = $1
+RETURNING *
+        `,
+        [withdrawId]
+      );
+
+      // Add transaction
+      await client.query(
+        `
+        INSERT INTO transactions
+        (
+          user_id,
+          type,
+          amount,
+          status,
+          reference,
+          description
+        )
+        VALUES
+        (
+          $1,
+          'withdrawal',
+          $2,
+          'completed',
+          $3,
+          $4
+        )
+        `,
+        [
+          withdrawal.user_id,
+          amount,
+          `WITHDRAW-${withdrawId}`,
+          `Withdrawal approved via ${withdrawal.method}`,
+        ]
+      );
+
+      // User notification
+      await client.query(
+        `
+        INSERT INTO notifications
+        (
+          user_id,
+          title,
+          message,
+          is_read,
+          created_at
+        )
+        VALUES
+        ($1, $2, $3, false, NOW())
+        `,
+        [
+          withdrawal.user_id,
+          "Withdrawal Approved",
+          `Your withdrawal of Rs ${amount} has been approved successfully.`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({
+        success: true,
+        message: "Withdrawal approved successfully.",
+        withdrawal: updateResult.rows[0],
+      });
+
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {}
+
+      console.error("APPROVE WITHDRAWAL ERROR:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+
+// ------------------------------------------------------------
+// ADMIN - REJECT WITHDRAWAL
+// ------------------------------------------------------------
+
+app.post(
+  "/api/admin/withdraw/reject",
+  authenticateAdmin,
+  async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+      const { withdrawId, reason } = req.body;
+
+      if (!withdrawId) {
+        return res.status(400).json({
+          success: false,
+          message: "Withdrawal ID is required",
+        });
+      }
+
+      await client.query("BEGIN");
+
+      // Get pending withdrawal
+      const withdrawResult = await client.query(
+        `
+        SELECT *
+        FROM withdraw_requests
+        WHERE id = $1
+          AND status = 'pending'
+        FOR UPDATE
+        `,
+        [withdrawId]
+      );
+
+      if (withdrawResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "Pending withdrawal not found",
+        });
+      }
+
+      const withdrawal = withdrawResult.rows[0];
+
+      const rejectionReason =
+        reason && reason.trim()
+          ? reason.trim()
+          : "Withdrawal rejected by admin";
+
+      // Mark withdrawal rejected
+      const updateResult = await client.query(
+        `
+       UPDATE withdraw_requests
+SET
+  status = 'rejected',
+  admin_note = $2
+WHERE id = $1
+RETURNING *
+        `,
+        [withdrawId]
+      );
+
+      // Notification to user
+      await client.query(
+        `
+        INSERT INTO notifications
+        (
+          user_id,
+          title,
+          message,
+          is_read,
+          created_at
+        )
+        VALUES
+        ($1, $2, $3, false, NOW())
+        `,
+        [
+          withdrawal.user_id,
+          "Withdrawal Rejected",
+          `Your withdrawal of Rs ${withdrawal.amount} was rejected. Reason: ${rejectionReason}`,
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({
+        success: true,
+        message: "Withdrawal rejected successfully.",
+        reason: rejectionReason,
+        withdrawal: updateResult.rows[0],
+      });
+
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {}
+
+      console.error("REJECT WITHDRAWAL ERROR:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
 // ------------------------------------------------------------
 // ADMIN - GET ALL TRANSACTIONS
 // ------------------------------------------------------------

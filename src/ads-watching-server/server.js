@@ -2986,6 +2986,50 @@ app.delete("/api/admin/plans/:id", authenticateAdmin, async (req, res) => {
     });
   }
 });
+app.post("/api/admin/plans/toggle", authenticateAdmin, async (req, res) => {
+  try {
+    const { planId, active } = req.body;
+
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: "Plan ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE plans
+      SET is_active = $1
+      WHERE id = $2
+      RETURNING *
+      `,
+      [Boolean(active), planId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: active
+        ? "Plan activated successfully"
+        : "Plan deactivated successfully",
+      plan: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Toggle plan error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
 // ============================================================
 // GLOBAL ERROR HANDLER
 // ============================================================

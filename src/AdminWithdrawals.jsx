@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+console.log("🔥 ADMIN WITHDRAWALS COMPONENT LOADED");
 
-const API_URL = import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://192.168.1.7:5001";
 
 export default function AdminWithdrawals() {
   const [withdrawals, setWithdrawals] = useState([]);
@@ -14,57 +15,70 @@ export default function AdminWithdrawals() {
   // FETCH ALL WITHDRAWALS
   // ============================================================
 
-  const fetchWithdrawals = useCallback(async (showRefreshLoader = false) => {
-    try {
-      if (showRefreshLoader) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      setError("");
-
-      const response = await fetch(
-        `${API_URL}/api/admin/withdrawals`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      console.log("ADMIN WITHDRAWALS RESPONSE:", data);
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to load withdrawals");
-      }
-
-      setWithdrawals(
-  Array.isArray(data.withdrawals)
-    ? data.withdrawals.filter((withdrawal) => withdrawal.status === "pending")
-    : []
-);
-    } catch (err) {
-      console.error("Error fetching withdrawals:", err);
-      setError(err.message || "Unable to connect to withdrawal server");
-      setWithdrawals([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+ const fetchWithdrawals = useCallback(async (showRefreshLoader = false) => {
+  try {
+    if (showRefreshLoader) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }, []);
 
-  useEffect(() => {
-    fetchWithdrawals();
-  }, [fetchWithdrawals]);
+    setError("");
 
+    const token = localStorage.getItem("adminToken");
+
+    console.log("========== WITHDRAW FETCH ==========");
+    console.log("API URL:", `${API_URL}/api/admin/withdrawals`);
+    console.log("TOKEN EXISTS:", !!token);
+    console.log("TOKEN LENGTH:", token ? token.length : 0);
+    console.log("TOKEN START:", token ? token.substring(0, 20) : "NO TOKEN");
+    console.log("====================================");
+
+    if (!token) {
+      throw new Error("Admin token not found. Please login again.");
+    }
+
+    const response = await fetch(
+      `${API_URL}/api/admin/withdrawals`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    console.log("WITHDRAW HTTP STATUS:", response.status);
+    console.log("WITHDRAW RESPONSE:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+
+    if (!data.success) {
+      throw new Error(data.message || "Failed to load withdrawals");
+    }
+
+    setWithdrawals(
+      Array.isArray(data.withdrawals)
+        ? data.withdrawals
+        : []
+    );
+
+  } catch (err) {
+    console.error("Error fetching withdrawals:", err);
+    setError(err.message || "Unable to connect to withdrawal server");
+    setWithdrawals([]);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+}, []);
+useEffect(() => {
+  fetchWithdrawals();
+}, [fetchWithdrawals]);
   // ============================================================
   // APPROVE WITHDRAWAL
   // ============================================================
@@ -146,6 +160,7 @@ await fetchWithdrawals(true);
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
           },
           body: JSON.stringify({
             withdrawId,
@@ -440,6 +455,5 @@ await fetchWithdrawals(true);
     </div>
   );
 }
-
 
 

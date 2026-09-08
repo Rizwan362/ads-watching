@@ -233,7 +233,7 @@ export default function Plans({ user, onPlanPurchased }) {
     }
 
    setSelectedPlan(plan);
-setShowPaymentModal(true);
+setShowPaymentConfirmation(true);
     setMessage({
       type: "",
       text: "",

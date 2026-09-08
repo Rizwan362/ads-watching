@@ -86,6 +86,7 @@ export default function AdminActivity() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+             Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
           },
           body: JSON.stringify({
             title: title.trim(),
@@ -138,6 +139,9 @@ export default function AdminActivity() {
         `${API_URL}/api/admin/announcements/${id}/deactivate`,
         {
           method: "PUT",
+          headers: {
+  Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+}
         }
       );
 

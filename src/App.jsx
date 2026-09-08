@@ -35,7 +35,44 @@ async function apiRequest(path, options = {}) {
   return fetch(url, options);
 }
 
+function AnnouncementPopup({
+  announcement,
+  onClose,
+}) {
+  if (!announcement) return null;
 
+  return (
+    <div className="announcement-overlay">
+      <div className="announcement-popup">
+
+        <button
+          type="button"
+          className="announcement-close"
+          onClick={onClose}
+        >
+          ×
+        </button>
+
+        <div className="announcement-icon">
+          📢
+        </div>
+
+        <h2>{announcement.title}</h2>
+
+        <p>{announcement.message}</p>
+
+        <button
+          type="button"
+          className="announcement-ok"
+          onClick={onClose}
+        >
+          OK
+        </button>
+
+      </div>
+    </div>
+  );
+}
 function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [walletScreen, setWalletScreen] = useState("dashboard");
@@ -224,12 +261,7 @@ historyScreenRef.current = historyScreen;
   }
 }
 
-  // ============================================================
-  // ============================================================
-// LOAD LATEST ANNOUNCEMENT
-// ============================================================
-
-const loadLatestAnnouncement = async () => {
+  const loadLatestAnnouncement = async () => {
   try {
     const response = await apiRequest(
       "/api/announcements/latest"
@@ -242,20 +274,11 @@ const loadLatestAnnouncement = async () => {
       data.success &&
       data.announcement
     ) {
-      const latest = data.announcement;
-
-      const seenId = localStorage.getItem(
-        "ads_watching_seen_announcement_id"
-      );
-
-      // Only show new announcement
-      if (
-        String(seenId) !==
-        String(latest.id)
-      ) {
-        setAnnouncement(latest);
-        setShowAnnouncement(true);
-      }
+      setAnnouncement(data.announcement);
+      setShowAnnouncement(true);
+    } else {
+      setAnnouncement(null);
+      setShowAnnouncement(false);
     }
   } catch (error) {
     console.error(
@@ -264,98 +287,9 @@ const loadLatestAnnouncement = async () => {
     );
   }
 };
-
-// ============================================================
-// CLOSE ANNOUNCEMENT
-// ============================================================
-
 const closeAnnouncement = () => {
-  if (announcement?.id) {
-    localStorage.setItem(
-      "ads_watching_seen_announcement_id",
-      String(announcement.id)
-    );
-  }
-
   setShowAnnouncement(false);
 };
-//====================================
-//Load Notifcation
-//====================================
- async function loadNotifications(userId = user?.id) {
-  if (!userId) return;
-
-  try {
-    const response = await apiRequest(
-      `/api/notifications/${userId}`
-    );
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      setNotifications(data.notifications || []);
-    }
-  } catch (error) {
-    console.error("NOTIFICATION ERROR:", error);
-  }
-}
-async function loadReferralData(userId = user?.id) {
-  if (!userId) return;
-
-  try {
-    setReferralLoading(true);
-
-    const response = await apiRequest(
-      `/api/referral/${userId}`
-    );
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      setReferralData(data.referral);
-    }
-  } catch (error) {
-    console.error("REFERRAL ERROR:", error);
-  } finally {
-    setReferralLoading(false);
-  }
-}
-async function copyReferralLink() {
-  if (!referralData?.link) return;
-
-  try {
-    await navigator.clipboard.writeText(referralData.link);
-
-    setReferralCopied(true);
-
-    setTimeout(() => {
-      setReferralCopied(false);
-    }, 2000);
-  } catch (error) {
-    console.error("COPY REFERRAL ERROR:", error);
-  }
-}
-
-async function shareReferralLink() {
-  if (!referralData?.link) return;
-
-  const shareText =
-    "Join me and start earning rewards! 🎁";
-
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: "Refer & Earn",
-        text: shareText,
-        url: referralData.link,
-      });
-    } else {
-      await copyReferralLink();
-    }
-  } catch (error) {
-    console.error("SHARE REFERRAL ERROR:", error);
-  }
-}
   // ============================================================
   // LOAD DEPOSIT INFO
   // ============================================================
@@ -554,11 +488,12 @@ function goToRegister() {
   }
 
   function openDashboard() {
-    clearMessages();
-    closeExtraScreen();
-    refreshWallet(user?.id);
-    setWalletScreen("dashboard");
-  }
+  clearMessages();
+  closeExtraScreen();
+  refreshWallet(user?.id);
+  loadLatestAnnouncement();
+  setWalletScreen("dashboard");
+}
 
   function openDeposit() {
     clearMessages();

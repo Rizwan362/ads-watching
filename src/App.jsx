@@ -318,15 +318,15 @@ async function loadReferralData(userId = user?.id) {
   if (!userId) return;
 
   try {
-    const response = await apiRequest(
-      `/api/referral/${userId}`
-    );
-
+    const response = await apiRequest(`/api/referral/${userId}`);
     const data = await response.json();
 
+    console.log("REFERRAL DATA:", data);
+
     if (response.ok && data.success) {
-      // Agar referral state maujood hai to yahan set karo
-      // setReferralData(data);
+      setReferralData(data);
+    } else {
+      console.error("Referral data error:", data.message);
     }
   } catch (error) {
     console.error("LOAD REFERRAL DATA ERROR:", error);
@@ -2545,8 +2545,14 @@ return (
     <div className="referral-link-box">
       <span>
         {referralLoading
-          ? "Loading referral link..."
-          : referralData?.link || "Referral link unavailable"}
+  ? "Loading referral link..."
+  : referralData?.link ||
+    `${window.location.origin}/register?ref=${
+      user?.referral_code ||
+      user?.referralCode ||
+      user?.id ||
+      ""
+    }`}
       </span>
     </div>
 
@@ -2554,7 +2560,14 @@ return (
       <button
         type="button"
         onClick={copyReferralLink}
-        disabled={!referralData?.link}
+       disabled={
+  !(
+    referralData?.link ||
+    user?.referral_code ||
+    user?.referralCode ||
+    user?.id
+  )
+}
       >
         {referralCopied ? "✓ Copied" : "📋 Copy Link"}
       </button>
@@ -2562,7 +2575,14 @@ return (
       <button
         type="button"
         onClick={shareReferralLink}
-        disabled={!referralData?.link}
+        disabled={
+  !(
+    referralData?.link ||
+    user?.referral_code ||
+    user?.referralCode ||
+    user?.id
+  )
+}
       >
         ↗ Share
       </button>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://ads-watching-api.onrender.com";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -29,7 +31,11 @@ export default function AdminDashboard() {
   const fetchDashboardStats = async () => {
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await fetch(`${API_URL}/api/admin/dashboard-stats`);
+      const response = await fetch(`${API_URL}/api/admin/dashboard-stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
       if (data.success) {
         
@@ -122,4 +128,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

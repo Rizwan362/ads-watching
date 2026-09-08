@@ -2397,18 +2397,42 @@ app.post("/api/admin/deposit/approve", async (req, res) => {
     const userPlan = userPlanResult.rows[0];
 
     for (let day = 1; day <= durationDays; day++) {
-      await client.query(
-        `
-        INSERT INTO daily_earnings
-        (user_id, plan_id, user_plan_id, amount,
-         earning_date, is_claimed, claimed_at, due_at)
-        VALUES ($1, $2, $3, $4,
-                (NOW() + ($5 * INTERVAL '1 day'))::date,
-                false, NULL, NOW() + ($5 * INTERVAL '1 day'))
-        `,
-        [paymentRequest.user_id, plan.id, userPlan.id,
-         plan.daily_earning, day]
-      );
+  await client.query(
+    `
+    INSERT INTO daily_earnings
+    (
+      user_id,
+      plan_id,
+      user_plan_id,
+      amount,
+      earning_date,
+      is_claimed,
+      claimed_at,
+      due_at
+    )
+    VALUES
+    (
+      $1,
+      $2,
+      $3,
+      $4,
+      (NOW() + ($5 * INTERVAL '1 day'))::date,
+      false,
+      NULL,
+      NOW() + ($5 * INTERVAL '1 day')
+    )
+    ON CONFLICT (user_id, plan_id, earning_date)
+    DO NOTHING
+    `,
+    [
+      paymentRequest.user_id,
+      plan.id,
+      userPlan.id,
+      plan.daily_earning,
+      day,
+    ]
+  );
+
     }
 
     await client.query(

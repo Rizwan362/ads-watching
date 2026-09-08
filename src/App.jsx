@@ -334,8 +334,8 @@ async function loadReferralData(userId = user?.id) {
 }
 const copyReferralLink = async () => {
   try {
-    const referralLink =
-      `${window.location.origin}/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+   const referralLink =
+  `${window.location.origin}/ads-watching/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
 
     await navigator.clipboard.writeText(referralLink);
 
@@ -347,8 +347,8 @@ const copyReferralLink = async () => {
 };
 const shareReferralLink = async () => {
   try {
-    const referralLink =
-      `${window.location.origin}/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+   const referralLink =
+  `${window.location.origin}/ads-watching/register?ref=${user?.referral_code || user?.referralCode || user?.id}`;
 
     if (navigator.share) {
       await navigator.share({

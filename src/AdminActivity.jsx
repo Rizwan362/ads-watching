@@ -51,25 +51,33 @@ export default function AdminActivity() {
   // ANNOUNCEMENTS
   // ============================================================
 
-  const fetchAnnouncements = async () => {
-    try {
-      const response = await fetch(
-        `${API_URL}/api/admin/announcements`
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        setAnnouncements(data.announcements || []);
+ const fetchAnnouncements = async () => {
+  try {
+    const response = await fetch(
+      `${API_URL}/api/admin/announcements`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+        },
       }
-    } catch (error) {
-      console.error(
-        "Error fetching announcements:",
-        error
-      );
-    }
-  };
+    );
 
+    const data = await response.json();
+
+    console.log("ANNOUNCEMENTS RESPONSE:", data);
+
+    if (data.success) {
+      setAnnouncements(data.announcements || []);
+    } else {
+      console.error("Failed to fetch announcements:", data.message);
+    }
+  } catch (error) {
+    console.error(
+      "Error fetching announcements:",
+      error
+    );
+  }
+};
   // ============================================================
   // CREATE ANNOUNCEMENT
   // ============================================================

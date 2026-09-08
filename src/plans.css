@@ -742,3 +742,261 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ============================================================
+   PAYMENT CONFIRMATION SCREEN
+   ============================================================ */
+
+.payment-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.payment-confirmation-card {
+  width: 100%;
+  max-width: 520px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 28px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease;
+}
+
+.payment-confirmation-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.payment-confirmation-card h2 {
+  color: #fff;
+  text-align: center;
+  font-size: 23px;
+  margin: 0 0 20px;
+}
+
+.payment-plan-summary {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.payment-plan-summary p {
+  color: #c5c5e0;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.payment-plan-summary strong {
+  color: #fff;
+}
+
+.urdu-payment-instructions {
+  background: rgba(241, 196, 15, 0.08);
+  border: 1px solid rgba(241, 196, 15, 0.25);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.urdu-payment-instructions h3 {
+  color: #f1c40f;
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.urdu-payment-instructions p {
+  color: #ddd;
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 8px 0;
+}
+
+.payment-account-box {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 13px;
+  margin: 12px 0;
+}
+
+.payment-account-box p {
+  color: #fff;
+  margin: 6px 0;
+  font-size: 15px;
+}
+
+.payment-input-group {
+  margin-bottom: 15px;
+}
+
+.payment-input-group label {
+  display: block;
+  color: #c5c5e0;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.payment-input-group input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 14px;
+}
+
+.payment-input-group input:focus {
+  outline: none;
+  border-color: #f1c40f;
+}
+
+.payment-input-group small {
+  display: block;
+  color: #8888aa;
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.screenshot-upload-section {
+  margin: 18px 0;
+}
+
+.screenshot-upload-section > label {
+  display: block;
+  color: #c5c5e0;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.screenshot-upload-section input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #aaa;
+}
+
+.screenshot-upload-section small {
+  display: block;
+  color: #f1c40f;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.screenshot-preview {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.screenshot-preview img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.screenshot-preview button {
+  margin-top: 8px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 7px;
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  cursor: pointer;
+}
+
+.payment-confirmation-message {
+  padding: 11px 14px;
+  border-radius: 9px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.payment-confirmation-message.success {
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  color: #2ecc71;
+}
+
+.payment-confirmation-message.error {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+
+.confirm-payment-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.confirm-payment-btn:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.confirm-payment-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.screenshot-required-note {
+  color: #8888aa;
+  text-align: center;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .payment-confirmation-overlay {
+    padding: 10px;
+  }
+
+  .payment-confirmation-card {
+    padding: 22px 16px;
+    max-height: 94vh;
+    border-radius: 16px;
+  }
+
+  .payment-confirmation-card h2 {
+    font-size: 20px;
+  }
+
+  .urdu-payment-instructions {
+    padding: 14px;
+  }
+}

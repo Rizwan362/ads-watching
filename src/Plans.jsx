@@ -11,7 +11,6 @@ export default function Plans({ user, onPlanPurchased }) {
   const [loading, setLoading] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   const [userPlans, setUserPlans] = useState([]);
   const [dailyEarnings, setDailyEarnings] = useState([]);
@@ -234,6 +233,7 @@ export default function Plans({ user, onPlanPurchased }) {
 
    setSelectedPlan(plan);
 setShowPaymentConfirmation(true);
+console.log("PAYMENT SCREEN STATE SHOULD OPEN", plan);
     setMessage({
       type: "",
       text: "",
@@ -688,179 +688,7 @@ setShowPaymentConfirmation(true);
     }}
   />
 )}
-      {/* ======================================
-          PAYMENT MODAL
-      ====================================== */}
-
-      {showPaymentModal && selectedPlan && (
-        <div className="payment-modal-overlay">
-          <div className="payment-modal">
-            <button
-              type="button"
-              className="modal-close"
-              onClick={closeModal}
-            >
-              ✕
-            </button>
-
-            <h2>Complete Payment</h2>
-
-            <div className="payment-summary">
-              <p>
-                <strong>Plan:</strong>{" "}
-                {selectedPlan.name}
-              </p>
-              <p>
-                <strong>Price:</strong>{" "}
-                Rs{" "}
-                {parseFloat(
-                  selectedPlan.price || 0
-                ).toFixed(2)}
-              </p>
-              <p>
-                <strong>Daily Earning:</strong>{" "}
-                Rs{" "}
-                {parseFloat(
-                  selectedPlan.daily_earning || 0
-                ).toFixed(2)}
-              </p>
-              <p>
-                <strong>Duration:</strong>{" "}
-                {selectedPlan.duration_days || 7} Days
-              </p>
-            </div>
-
-            {message.text && (
-              <div className={`payment-message ${message.type}`}>
-                {message.text}
-              </div>
-            )}
-
-            {/* PAYMENT REFERENCE */}
-            {referenceId ? (
-              <div className="payment-reference">
-                <p>
-                  <strong>Payment Request Created</strong>
-                </p>
-
-                <div className="account-details">
-                  <div className="account-detail-item">
-                    <span>Method:</span>
-                    <strong>EasyPaisa</strong>
-                  </div>
-
-                  <div className="account-detail-item">
-                    <span>Reference:</span>
-                    <strong style={{ wordBreak: "break-all" }}>
-                      {referenceId}
-                    </strong>
-                  </div>
-
-                  <div className="account-detail-item">
-                    <span>Amount:</span>
-                    <strong>
-                      Rs{" "}
-                      {parseFloat(
-                        selectedPlan.price || 0
-                      ).toFixed(2)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="copy-reference">
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(referenceId)}
-                    className="copy-btn"
-                  >
-                    Copy Reference ID
-                  </button>
-                </div>
-
-                <p className="instruction-note">
-                  Keep your reference ID for payment verification.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="pay-now-btn"
-                >
-                  Done
-                </button>
-              </div>
-            ) : (
-              /* PAYMENT FORM */
-              <form onSubmit={processPayment}>
-                <div className="payment-method-select">
-                  <button type="button" className="method-btn active">
-                    EasyPaisa
-                  </button>
-                </div>
-
-                <div className="payment-info-box">
-                  <p>
-                    <strong>Payment Method</strong>
-                  </p>
-                  <p>
-                    Send the exact plan amount using
-                    EasyPaisa to:
-                  </p>
-                  <div className="bank-details">
-                    <div>Account: <strong>03439540534</strong></div>
-                    <div>Name: <strong>RIZWAN ISHAQ</strong></div>
-                  </div>
-                </div>
-
-                <div className="input-group">
-                  <label>Your EasyPaisa Account Number</label>
-                  <input
-                    type="text"
-                    placeholder="03XXXXXXXXX"
-                    value={accountNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, "");
-                      if (value.length <= 11) {
-                        setAccountNumber(value);
-                      }
-                    }}
-                    required
-                  />
-                  <small>Enter 10-11 digits.</small>
-                </div>
-
-                <div className="input-group">
-                  <label>Account Holder Name</label>
-                  <input
-                    type="text"
-                    placeholder="Your full name"
-                    value={accountName}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                      setAccountName(value);
-                    }}
-                    required
-                  />
-                  <small>Letters and spaces only.</small>
-                </div>
-
-                <button
-                  type="submit"
-                  className="pay-now-btn"
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Processing..."
-                    : `Submit Rs ${parseFloat(
-                        selectedPlan.price || 0
-                      ).toFixed(2)} Payment Request`}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
+    
       {/* ======================================
           ACTIVE PLANS
       ====================================== */}

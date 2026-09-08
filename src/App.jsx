@@ -260,6 +260,30 @@ historyScreenRef.current = historyScreen;
     console.error("PAYMENT ACCOUNTS ERROR:", err);
   }
 }
+async function loadNotifications(userId = user?.id) {
+  if (!userId) return;
+
+  try {
+    const response = await apiRequest(
+      `/api/notifications/${userId}`
+    );
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      setNotifications(
+        Array.isArray(data.notifications)
+          ? data.notifications
+          : []
+      );
+    } else {
+      setNotifications([]);
+    }
+  } catch (error) {
+    console.error("LOAD NOTIFICATIONS ERROR:", error);
+    setNotifications([]);
+  }
+}
 
   const loadLatestAnnouncement = async () => {
   try {

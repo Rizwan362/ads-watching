@@ -132,6 +132,33 @@ pool
     console.error("PostgreSQL connection error:", err.message);
   });
 // ============================================================
+// NOTIFICATION HELPER
+// ============================================================
+
+async function createNotification(userId, title, message, db = pool) {
+  if (!userId) return;
+
+  try {
+    await db.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        is_read,
+        created_at
+      )
+      VALUES ($1, $2, $3, false, NOW())
+      `,
+      [userId, title, message]
+    );
+  } catch (error) {
+    // Notification failure should NOT break the main API
+    console.error("CREATE NOTIFICATION ERROR:", error.message);
+  }
+}
+// ============================================================
 // ROOT
 // ============================================================
 
@@ -232,6 +259,30 @@ app.post(
         `,
         [title.trim(), message.trim()]
       );
+// Send notification to all users
+await pool.query(
+  `
+  INSERT INTO notifications
+  (
+    user_id,
+    title,
+    message,
+    is_read,
+    created_at
+  )
+  SELECT
+    id,
+    $1,
+    $2,
+    false,
+    NOW()
+  FROM users
+  `,
+  [
+    "New Update 📢",
+    `${title.trim()}: ${message.trim()}`,
+  ]
+);
 
       res.json({
         success: true,
@@ -1489,6 +1540,12 @@ app.post("/api/payment/request", async (req, res) => {
         referenceId,
       ]
     );
+// User notification
+await createNotification(
+  userId,
+  "Payment Pending ⏳",
+  `Your payment of Rs ${plan.price} for ${plan.name} has been submitted and is pending admin verification.`
+);
 
     return res.json({
       success: true,
@@ -1802,6 +1859,41 @@ async function processDueEarnings() {
   const client = await pool.connect();
 
   try {
+await client.query(
+  `
+  INSERT INTO transactions 
+  ( 
+    user_id, 
+    type, 
+    amount, 
+    status, 
+    reference, 
+    description 
+  ) 
+  VALUES 
+  ( 
+    $1, 
+    'earning', 
+    $2, 
+    'completed', 
+    $3, 
+    $4 
+  ) 
+  `,
+  [
+    earning.user_id,
+    amount,
+    `EARNING-${earning.id}`,
+    "Daily earning credited automatically",
+  ]
+);
+// User notification
+await createNotification(
+  earning.user_id,
+  "Daily Earning Credited 💰",
+  `Rs ${amount} has been credited to your wallet as your daily earning${earning.plan_name ? ` from ${earning.plan_name}` : ""}.`,
+  client
+);
     await client.query("BEGIN");
 
     const dueResult = await client.query(
@@ -2444,6 +2536,13 @@ DO NOTHING
       `,
       [depositId]
     );
+// User notification
+await createNotification(
+  paymentRequest.user_id,
+  "Deposit Approved ✅",
+  `Your deposit of Rs ${paymentRequest.amount} has been approved successfully. Your ${plan.name} plan is now active.`,
+  client
+);
     // ============================================================
 // REFERRAL REWARD - 30% OF APPROVED DEPOSIT
 // ============================================================
@@ -2592,15 +2691,31 @@ app.post("/api/admin/deposit/reject", async (req, res) => {
       });
     }
 
-    await pool.query(
-      `
-      UPDATE payment_requests
-      SET status = 'rejected'
-      WHERE id = $1 AND status = 'pending'
-      `,
-      [depositId]
-    );
+   const result = await pool.query(
+  `
+  UPDATE payment_requests
+  SET status = 'rejected'
+  WHERE id = $1
+    AND status = 'pending'
+  RETURNING user_id, amount
+  `,
+  [depositId]
+);
 
+if (result.rows.length === 0) {
+  return res.status(404).json({
+    success: false,
+    message: "Pending deposit not found",
+  });
+}
+
+const rejectedDeposit = result.rows[0];
+
+await createNotification(
+  rejectedDeposit.user_id,
+  "Deposit Rejected ❌",
+  `Your deposit of Rs ${rejectedDeposit.amount} was rejected.${reason ? ` Reason: ${reason}` : ""}`
+);
     res.json({
       success: true,
       message: "Deposit rejected",
@@ -2964,6 +3079,12 @@ RETURNING *
           `Your withdrawal of Rs ${withdrawal.amount} was rejected. Reason: ${rejectionReason}`,
         ]
       );
+// User notification
+await createNotification(
+  userId,
+  "Withdrawal Pending ⏳",
+  `Your withdrawal request of Rs ${amountValue} has been submitted and is pending admin review.`
+);
 
       await client.query("COMMIT");
 

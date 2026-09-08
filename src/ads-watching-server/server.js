@@ -2421,8 +2421,8 @@ app.post("/api/admin/deposit/approve", async (req, res) => {
       NULL,
       NOW() + ($5 * INTERVAL '1 day')
     )
-    ON CONFLICT (user_id, plan_id, earning_date)
-    DO NOTHING
+    ON CONFLICT (user_plan_id, earning_date)
+DO NOTHING
     `,
     [
       paymentRequest.user_id,

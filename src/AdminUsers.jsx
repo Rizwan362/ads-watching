@@ -26,32 +26,31 @@ export default function AdminUsers() {
   // ==========================================================
 
   const fetchUsers = async () => {
-    try {
-      const token = localStorage.getItem("adminToken");
-      const response = await fetch(
-        `${API_URL}/api/admin/users`
-      );
+  try {
+    const token = localStorage.getItem("adminToken");
 
-      const data = await response.json();
-
-      if (data.success) {
-        setUsers(data.users || []);
-      } else {
-        console.error(
-          "Users API error:",
-          data.message
-        );
+    const response = await fetch(
+      `${API_URL}/api/admin/users`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
-    } catch (error) {
-      console.error(
-        "Error fetching users:",
-        error
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    );
 
+    const data = await response.json();
+
+    if (data.success) {
+      setUsers(data.users || []);
+    } else {
+      console.error("Users API error:", data.message);
+    }
+  } catch (error) {
+    console.error("Error fetching users:", error);
+  } finally {
+    setLoading(false);
+  }
+};
   // ==========================================================
   // BLOCK / UNBLOCK
   // ==========================================================

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "./plans.css";
+import PaymentConfirmation from "./PaymentConfirmation";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://ads-watching-api.onrender.com";
 
@@ -11,6 +12,7 @@ export default function Plans({ user, onPlanPurchased }) {
   const [plansLoading, setPlansLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   const [userPlans, setUserPlans] = useState([]);
   const [dailyEarnings, setDailyEarnings] = useState([]);
   const [message, setMessage] = useState({
@@ -230,8 +232,8 @@ export default function Plans({ user, onPlanPurchased }) {
       return;
     }
 
-    setSelectedPlan(plan);
-    setShowPaymentModal(true);
+   setSelectedPlan(plan);
+setShowPaymentModal(true);
     setMessage({
       type: "",
       text: "",
@@ -671,7 +673,21 @@ export default function Plans({ user, onPlanPurchased }) {
           </div>
         )}
       </div>
-
+{showPaymentConfirmation && selectedPlan && (
+  <PaymentConfirmation
+    user={user}
+    selectedPlan={selectedPlan}
+    onClose={() => {
+      setShowPaymentConfirmation(false);
+      setSelectedPlan(null);
+    }}
+    onSuccess={() => {
+      setShowPaymentConfirmation(false);
+      setSelectedPlan(null);
+      refreshAllData();
+    }}
+  />
+)}
       {/* ======================================
           PAYMENT MODAL
       ====================================== */}

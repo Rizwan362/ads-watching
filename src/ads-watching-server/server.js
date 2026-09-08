@@ -152,6 +152,144 @@ app.get("/api/health", (req, res) => {
     message: "Backend is healthy",
   });
 });
+// ==================== ANNOUNCEMENTS ====================
+
+// Get latest active announcement for users
+app.get("/api/announcements/latest", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, title, message, created_at
+      FROM announcements
+      WHERE is_active = true
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    res.json({
+      success: true,
+      announcement: result.rows[0] || null,
+    });
+  } catch (error) {
+    console.error("Latest announcement error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to load announcement",
+    });
+  }
+});
+
+
+// Admin: Get all announcements
+app.get(
+  "/api/admin/announcements",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT id, title, message, is_active, created_at
+        FROM announcements
+        ORDER BY created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        announcements: result.rows,
+      });
+    } catch (error) {
+      console.error("Admin announcements error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to load announcements",
+      });
+    }
+  }
+);
+
+
+// Admin: Create announcement
+app.post(
+  "/api/admin/announcements",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { title, message } = req.body;
+
+      if (!title || !message) {
+        return res.status(400).json({
+          success: false,
+          message: "Title and message are required",
+        });
+      }
+
+      const result = await pool.query(
+        `
+        INSERT INTO announcements
+        (title, message, is_active, created_at)
+        VALUES ($1, $2, true, NOW())
+        RETURNING id, title, message, is_active, created_at
+        `,
+        [title.trim(), message.trim()]
+      );
+
+      res.json({
+        success: true,
+        message: "Announcement published successfully",
+        announcement: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Create announcement error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to create announcement",
+      });
+    }
+  }
+);
+
+
+// Admin: Deactivate announcement
+app.put(
+  "/api/admin/announcements/:id/deactivate",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const result = await pool.query(
+        `
+        UPDATE announcements
+        SET is_active = false
+        WHERE id = $1
+        RETURNING *
+        `,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Announcement not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Announcement deactivated successfully",
+        announcement: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Deactivate announcement error:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to deactivate announcement",
+      });
+    }
+  }
+);
 
 // ============================================================
 // DEPOSIT INFO ENDPOINT

@@ -26,9 +26,14 @@ export default function AdminActivity() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/admin/activity`
-      );
+     const response = await fetch(
+  `${API_URL}/api/admin/activity`,
+  {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+    },
+  }
+);
 
       const data = await response.json();
 

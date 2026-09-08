@@ -334,8 +334,18 @@ async function loadReferralData(userId = user?.id) {
 }
 const copyReferralLink = async () => {
   try {
-  const referralLink =
-  `${window.location.origin}/ads-watching/?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+    const referralCode =
+      referralData?.referral?.code ||
+      user?.referral_code ||
+      user?.referralCode;
+
+    if (!referralCode) {
+      alert("Referral code not available yet");
+      return;
+    }
+
+    const referralLink =
+      `${window.location.origin}/ads-watching/?ref=${encodeURIComponent(referralCode)}`;
 
     await navigator.clipboard.writeText(referralLink);
 
@@ -347,8 +357,18 @@ const copyReferralLink = async () => {
 };
 const shareReferralLink = async () => {
   try {
-  const referralLink =
-  `${window.location.origin}/ads-watching/?ref=${user?.referral_code || user?.referralCode || user?.id}`;
+    const referralCode =
+      referralData?.referral?.code ||
+      user?.referral_code ||
+      user?.referralCode;
+
+    if (!referralCode) {
+      alert("Referral code not available yet");
+      return;
+    }
+
+    const referralLink =
+      `${window.location.origin}/ads-watching/?ref=${encodeURIComponent(referralCode)}`;
 
     if (navigator.share) {
       await navigator.share({

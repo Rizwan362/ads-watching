@@ -84,7 +84,7 @@ const message =
     : `Your Ads Watching password reset OTP is ${code}. This OTP will expire in 10 minutes.`;
 
 const { data, error } = await resend.emails.send({
-  from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+  from: process.env.RESEND_FROM_EMAIL ||  "noreply@adswatching.online",
   to: [email],
   subject: subject,
   text: message,

@@ -344,8 +344,9 @@ const copyReferralLink = async () => {
       return;
     }
 
-    const referralLink =
-      `${window.location.origin}/ads-watching/?ref=${encodeURIComponent(referralCode)}`;
+  
+      const referralLink =
+  `https://adswatching.online/?ref=${encodeURIComponent(referralCode)}`;
 
     await navigator.clipboard.writeText(referralLink);
 

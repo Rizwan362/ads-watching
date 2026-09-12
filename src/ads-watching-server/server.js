@@ -1985,6 +1985,16 @@ app.post("/api/withdraw/request", async (req, res) => {
     );
 
     // --------------------------------------------------------
+    // WITHDRAWAL PENDING NOTIFICATION
+    // --------------------------------------------------------
+
+    await createNotification(
+      userId,
+      "Withdrawal Pending ⏳",
+      `Your withdrawal request of Rs ${amountValue} has been submitted and is pending admin review.`
+    );
+
+    // --------------------------------------------------------
     // SUCCESS
     // --------------------------------------------------------
 
@@ -1992,11 +2002,6 @@ app.post("/api/withdraw/request", async (req, res) => {
       success: true,
       message: "Withdrawal request submitted successfully",
     });
-    await createNotification(
-      userId,
-      "Withdrawal Pending ⏳",
-      `Your withdrawal request of Rs ${amountValue} has been submitted and is pending admin review.`
-    );
   } catch (error) {
     console.error("Withdraw request error:", error);
 

@@ -1992,7 +1992,11 @@ app.post("/api/withdraw/request", async (req, res) => {
       success: true,
       message: "Withdrawal request submitted successfully",
     });
-
+    await createNotification(
+      userId,
+      "Withdrawal Pending ⏳",
+      `Your withdrawal request of Rs ${amountValue} has been submitted and is pending admin review.`
+    );
   } catch (error) {
     console.error("Withdraw request error:", error);
 
@@ -2159,6 +2163,7 @@ async function processDueEarnings() {
       );
 
       await client.query(
+        
         `
         INSERT INTO transactions
         (
@@ -2186,7 +2191,12 @@ async function processDueEarnings() {
           "Daily earning credited automatically",
         ]
       );
-
+      await createNotification(
+        earning.user_id,
+        "Daily Earning Credited 💰",
+        `Rs ${amount} has been credited to your wallet as your daily earning${earning.plan_name ? ` from ${earning.plan_name}` : ""}.`,
+        client
+      );
       const remainingResult = await client.query(
         `
         SELECT COUNT(*)::int AS remaining

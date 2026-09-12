@@ -1068,8 +1068,7 @@ app.get("/api/referral/:userId", async (req, res) => {
     const referralCode = user.referral_code;
 
     // Change this URL if your frontend production domain is different
-    const baseUrl =
-      process.env.FRONTEND_URL || "https://your-app-url.com";
+    const baseUrl = "https://adswatching.online";
 
     const referralLink =
       `${baseUrl}?ref=${encodeURIComponent(referralCode)}`;

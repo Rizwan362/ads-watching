@@ -2567,7 +2567,7 @@ return (
       <span>
         {referralLoading
   ? "Loading referral link..."
-  : referralData?.link ||
+  : referralData?.referral?.link ||
     `${window.location.origin}/register?ref=${
       user?.referral_code ||
       user?.referralCode ||
@@ -2613,14 +2613,14 @@ return (
   <div className="referral-stats">
     <div>
       <strong>
-        {referralData?.totalReferrals || 0}
+           {referralData?.referral?.totalReferrals || 0}
       </strong>
       <span>Total Referrals</span>
     </div>
 
     <div>
       <strong>
-        {referralData?.totalReferralPoints || 0}
+          {referralData?.referral?.totalReferralPoints || 0}
       </strong>
       <span>Referral Rewards</span>
     </div>

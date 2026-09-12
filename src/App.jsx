@@ -121,12 +121,22 @@ const [withdrawAccountNumber, setWithdrawAccountNumber] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
-  useEffect(() => {
+ useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const ref = params.get("ref");
 
-  if (ref) {
-    setReferralCode(ref.trim());
+  if (ref && ref.trim()) {
+    const code = ref.trim().toUpperCase();
+
+    setReferralCode(code);
+    localStorage.setItem("ads_referral_code", code);
+    setScreen("register");
+  } else {
+    const savedRef = localStorage.getItem("ads_referral_code");
+
+    if (savedRef) {
+      setReferralCode(savedRef.toUpperCase());
+    }
   }
 }, []);
   const [verificationEmail, setVerificationEmail] = useState("");
@@ -368,8 +378,8 @@ const shareReferralLink = async () => {
       return;
     }
 
-    const referralLink =
-      `${window.location.origin}/ads-watching/?ref=${encodeURIComponent(referralCode)}`;
+   const referralLink =
+  `https://adswatching.online/?ref=${encodeURIComponent(referralCode)}`;
 
     if (navigator.share) {
       await navigator.share({
@@ -529,15 +539,7 @@ useEffect(() => {
     loadPaymentAccounts(user.id);
   }
 }, [loggedIn, user?.id]);
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get("ref");
 
-  if (ref) {
-    setReferralCode(ref.trim().toUpperCase());
-    setScreen("register");
-  }
-}, []);
   // ============================================================
   // NAVIGATION
   // ============================================================
@@ -899,6 +901,8 @@ async function handleLogin(e) {
       setRegisterPassword("");
       setRegisterConfirmPassword("");
       setVerificationOtp("");
+      setReferralCode("");
+localStorage.removeItem("ads_referral_code");
       setTimeout(() => {
         setScreen("login");
         setSuccess("");
@@ -2581,12 +2585,10 @@ return (
       <button
         type="button"
         onClick={copyReferralLink}
-       disabled={
+  disabled={
   !(
-    referralData?.link ||
-    user?.referral_code ||
-    user?.referralCode ||
-    user?.id
+    referralData?.referral?.link ||
+    referralData?.referral?.code
   )
 }
       >
@@ -2596,12 +2598,10 @@ return (
       <button
         type="button"
         onClick={shareReferralLink}
-        disabled={
+  disabled={
   !(
-    referralData?.link ||
-    user?.referral_code ||
-    user?.referralCode ||
-    user?.id
+    referralData?.referral?.link ||
+    referralData?.referral?.code
   )
 }
       >
@@ -3060,17 +3060,17 @@ return (
   <div className="input-wrapper">
     <span className="input-icon">🎁</span>
 
-    <input
-      id="register-referral"
-      type="text"
-      placeholder="Enter referral code"
-      value={referralCode}
-      onChange={(e) =>
-        setReferralCode(e.target.value.toUpperCase())
-      }
-      autoComplete="off"
-      disabled={loading}
-    />
+    <input 
+  id="register-referral" 
+  type="text" 
+  placeholder="Enter referral code" 
+  value={referralCode} 
+  onChange={(e) => 
+    setReferralCode(e.target.value.toUpperCase()) 
+  } 
+  autoComplete="off" 
+  disabled={loading || Boolean(referralCode)} 
+/>
   </div>
 </div>
               <button type="submit" className="login-button" disabled={loading}>

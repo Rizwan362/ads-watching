@@ -2870,20 +2870,21 @@ if (referralResult.rows.length > 0) {
         if (rewardCheck.rows.length === 0) {
 
           // Add referral points to referrer
-          await client.query(
-            `
-            UPDATE users
-            SET
-              total_points =
-                COALESCE(total_points, 0) + $1,
-              updated_at = NOW()
-            WHERE id = $2
-            `,
-            [
-              rewardPoints,
-              referrerId,
-            ]
-          );
+         // Add referral reward to points and wallet balance
+await client.query(
+  `
+  UPDATE users
+  SET
+    total_points = COALESCE(total_points, 0) + $1,
+    balance = COALESCE(balance, 0) + $1,
+    updated_at = NOW()
+  WHERE id = $2
+  `,
+  [
+    rewardPoints,
+    referrerId,
+  ]
+);
 
           // Record reward
           await client.query(

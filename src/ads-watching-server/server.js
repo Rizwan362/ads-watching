@@ -518,7 +518,6 @@ app.put("/api/notifications/:userId/read", async (req, res) => {
 // ============================================================
 // AUTH APIs
 // ============================================================
-
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { name, email, password, referralCode } = req.body;
@@ -532,7 +531,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check existing user
+    // Check if email is already fully registered
     const existingUser = await pool.query(
       `
       SELECT id
@@ -550,14 +549,12 @@ app.post("/api/auth/register", async (req, res) => {
       });
     }
 
+    // Hash password before storing pending registration
     const passwordHash = await bcrypt.hash(password, 12);
-
-    // ============================================================
-    // REFERRAL CODE CHECK
-    // ============================================================
 
     let referredBy = null;
 
+    // Check referral code
     if (referralCode && referralCode.trim()) {
       const referralResult = await pool.query(
         `
@@ -574,11 +571,166 @@ app.post("/api/auth/register", async (req, res) => {
       }
     }
 
-    // ============================================================
-    // CREATE USER
-    // ============================================================
+    // Remove old pending registration for same email
+    await pool.query(
+      `
+      DELETE FROM pending_registrations
+      WHERE email = $1
+      `,
+      [normalizedEmail]
+    );
 
-    const result = await pool.query(
+    // Store registration temporarily.
+    // IMPORTANT: No row is created in users yet.
+    await pool.query(
+      `
+      INSERT INTO pending_registrations
+      (
+        name,
+        email,
+        password_hash,
+        referral_code,
+        referred_by,
+        expires_at
+      )
+      VALUES
+      (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        NOW() + INTERVAL '10 minutes'
+      )
+      `,
+      [
+        name.trim(),
+        normalizedEmail,
+        passwordHash,
+        referralCode ? referralCode.trim().toUpperCase() : null,
+        referredBy,
+      ]
+    );
+
+    // Send OTP
+    try {
+      await createAndSendOtp({
+        email: normalizedEmail,
+        userId: null,
+        purpose: "registration",
+      });
+    } catch (emailError) {
+      console.error(
+        "REGISTRATION OTP EMAIL ERROR:",
+        emailError.message
+      );
+
+      // Remove pending registration if OTP email fails
+      await pool.query(
+        `
+        DELETE FROM pending_registrations
+        WHERE email = $1
+        `,
+        [normalizedEmail]
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Verification email could not be sent. Please try again.",
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Registration started. OTP sent to your email.",
+    });
+
+  } catch (error) {
+    console.error("Register error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error during registration",
+    });
+  }
+});
+   
+// ============================================================
+// VERIFY REGISTRATION OTP
+// ============================================================
+app.post("/api/auth/verify-otp", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+
+    await client.query("BEGIN");
+
+    // Check OTP
+    const otpResult = await client.query(
+      `
+      SELECT id
+      FROM email_otps
+      WHERE email = $1
+        AND code = $2
+        AND purpose = 'registration'
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [normalizedEmail, normalizedCode]
+    );
+
+    if (otpResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    // Get pending registration
+    const pendingResult = await client.query(
+      `
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        referral_code,
+        referred_by
+      FROM pending_registrations
+      WHERE email = $1
+        AND expires_at > NOW()
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
+
+    if (pendingResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Registration request expired. Please register again.",
+      });
+    }
+
+    const pending = pendingResult.rows[0];
+
+    // Create actual user ONLY after OTP verification
+    const userResult = await client.query(
       `
       INSERT INTO users
       (
@@ -594,7 +746,7 @@ app.post("/api/auth/register", async (req, res) => {
         $1,
         $2,
         $3,
-        false,
+        true,
         'RW' || UPPER(
           SUBSTRING(
             MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT),
@@ -612,98 +764,15 @@ app.post("/api/auth/register", async (req, res) => {
         created_at
       `,
       [
-        name.trim(),
-        normalizedEmail,
-        passwordHash,
-        referredBy,
+        pending.name,
+        pending.email,
+        pending.password_hash,
+        pending.referred_by,
       ]
     );
 
-      // ============================================================
-    // SEND REGISTRATION OTP
-    // ============================================================
-
-    try {
-      await createAndSendOtp({
-        email: normalizedEmail,
-        userId: result.rows[0].id,
-        purpose: "registration",
-      });
-    } catch (emailError) {
-      console.error("REGISTRATION OTP EMAIL ERROR:", emailError.message);
-
-      return res.status(500).json({
-        success: false,
-        message: "Account created, but verification email could not be sent. Please try resend OTP.",
-      });
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: "Registration successful. OTP sent to your email.",
-      user: result.rows[0],
-    });
-
-  } catch (error) {
-    console.error("Register error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error during registration",
-    });
-  }
-});
-// ============================================================
-// VERIFY REGISTRATION OTP
-// ============================================================
-
-app.post("/api/auth/verify-otp", async (req, res) => {
-  try {
-    const { email, code } = req.body;
-
-    if (!email || !code) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and OTP are required",
-      });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedCode = code.trim();
-
-    const otpResult = await pool.query(
-      `
-      SELECT id, user_id
-      FROM email_otps
-      WHERE email = $1
-        AND code = $2
-        AND purpose = 'registration'
-        AND expires_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 1
-      `,
-      [normalizedEmail, normalizedCode]
-    );
-
-    if (otpResult.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired OTP",
-      });
-    }
-
-    const userId = otpResult.rows[0].user_id;
-
-    await pool.query(
-      `
-      UPDATE users
-      SET email_verified = true
-      WHERE id = $1
-      `,
-      [userId]
-    );
-
-    await pool.query(
+    // Delete OTP
+    await client.query(
       `
       DELETE FROM email_otps
       WHERE email = $1
@@ -712,25 +781,44 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       [normalizedEmail]
     );
 
+    // Delete pending registration
+    await client.query(
+      `
+      DELETE FROM pending_registrations
+      WHERE email = $1
+      `,
+      [normalizedEmail]
+    );
+
+    await client.query("COMMIT");
+
     return res.json({
       success: true,
-      message: "Email verified successfully",
+      message: "Email verified successfully. Account created.",
+      user: userResult.rows[0],
     });
 
   } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("ROLLBACK ERROR:", rollbackError);
+    }
+
     console.error("VERIFY OTP ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Server error during OTP verification",
     });
+
+  } finally {
+    client.release();
   }
 });
-
 // ============================================================
 // RESEND REGISTRATION OTP
 // ============================================================
-
 app.post("/api/auth/resend-otp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -744,41 +832,34 @@ app.post("/api/auth/resend-otp", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const userResult = await pool.query(
+    // Registration must still be pending
+    const pendingResult = await pool.query(
       `
-      SELECT id, email_verified
-      FROM users
+      SELECT id
+      FROM pending_registrations
       WHERE email = $1
-;2      LIMIT 1
+        AND expires_at > NOW()
+      LIMIT 1
       `,
       [normalizedEmail]
     );
 
-    if (userResult.rows.length === 0) {
+    if (pendingResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    if (user.email_verified) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already verified",
+        message: "No pending registration found. Please register again.",
       });
     }
 
     await createAndSendOtp({
       email: normalizedEmail,
-      userId: user.id,
+      userId: null,
       purpose: "registration",
     });
 
     return res.json({
       success: true,
-      message: "OTP sent successfully to your email.",
+      message: "OTP sent successfully.",
     });
 
   } catch (error) {
@@ -786,7 +867,7 @@ app.post("/api/auth/resend-otp", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to resend OTP",
+      message: "Unable to resend OTP.",
     });
   }
 });
@@ -963,6 +1044,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const user = result.rows[0];
+    
 
     const passwordMatch = await bcrypt.compare(
       password,

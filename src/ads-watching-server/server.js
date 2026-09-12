@@ -2080,41 +2080,7 @@ async function processDueEarnings() {
   const client = await pool.connect();
 
   try {
-await client.query(
-  `
-  INSERT INTO transactions 
-  ( 
-    user_id, 
-    type, 
-    amount, 
-    status, 
-    reference, 
-    description 
-  ) 
-  VALUES 
-  ( 
-    $1, 
-    'earning', 
-    $2, 
-    'completed', 
-    $3, 
-    $4 
-  ) 
-  `,
-  [
-    earning.user_id,
-    amount,
-    `EARNING-${earning.id}`,
-    "Daily earning credited automatically",
-  ]
-);
-// User notification
-await createNotification(
-  earning.user_id,
-  "Daily Earning Credited 💰",
-  `Rs ${amount} has been credited to your wallet as your daily earning${earning.plan_name ? ` from ${earning.plan_name}` : ""}.`,
-  client
-);
+
     await client.query("BEGIN");
 
     const dueResult = await client.query(

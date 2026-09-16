@@ -2395,24 +2395,48 @@ const paymentAccountsResult = await pool.query(
 // ------------------------------------------------------------
 // ADMIN LOGIN
 // ------------------------------------------------------------
-
 app.post("/api/admin/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("========== ADMIN LOGIN ==========");
+    console.log("LOGIN EMAIL:", email);
+    console.log("PASSWORD RECEIVED:", !!password);
+
     if (!email || !password) {
+      console.log("ADMIN LOGIN ERROR: Missing email/password");
+
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    console.log("NORMALIZED EMAIL:", normalizedEmail);
+
     const result = await pool.query(
-      `SELECT * FROM users WHERE email = $1 AND is_admin = true`,
-      [email.trim().toLowerCase()]
+      `
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        is_admin
+      FROM users
+      WHERE LOWER(TRIM(email)) = $1
+        AND is_admin = true
+      LIMIT 1
+      `,
+      [normalizedEmail]
     );
 
+    console.log("ADMIN RECORD FOUND:", result.rows.length);
+
     if (result.rows.length === 0) {
+      console.log("ADMIN LOGIN ERROR: ADMIN RECORD NOT FOUND");
+
       return res.status(401).json({
         success: false,
         message: "Invalid admin credentials",
@@ -2420,9 +2444,26 @@ app.post("/api/admin/login", async (req, res) => {
     }
 
     const admin = result.rows[0];
-    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+
+    console.log("ADMIN ID:", admin.id);
+    console.log("ADMIN EMAIL:", admin.email);
+    console.log("IS ADMIN:", admin.is_admin);
+    console.log("PASSWORD HASH EXISTS:", !!admin.password_hash);
+    console.log(
+      "PASSWORD HASH LENGTH:",
+      admin.password_hash ? admin.password_hash.length : 0
+    );
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      admin.password_hash
+    );
+
+    console.log("PASSWORD MATCH:", passwordMatch);
 
     if (!passwordMatch) {
+      console.log("ADMIN LOGIN ERROR: PASSWORD MISMATCH");
+
       return res.status(401).json({
         success: false,
         message: "Invalid admin credentials",
@@ -2430,18 +2471,20 @@ app.post("/api/admin/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-  {
-    adminId: admin.id,
-    email: admin.email,
-    role: "admin",
-  },
-  process.env.JWT_SECRET,
-  {
-    expiresIn: "7d",
-  }
-);
+      {
+        adminId: admin.id,
+        email: admin.email,
+        role: "admin",
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
 
-    res.json({
+    console.log("ADMIN LOGIN SUCCESS:", admin.id);
+
+    return res.json({
       success: true,
       token,
       admin: {
@@ -2451,9 +2494,11 @@ app.post("/api/admin/login", async (req, res) => {
         is_admin: admin.is_admin,
       },
     });
+
   } catch (error) {
     console.error("Admin login error:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
